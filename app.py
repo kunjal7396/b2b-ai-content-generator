@@ -15,6 +15,12 @@ from utils import (
     create_refactor_prompt,
     create_polish_prompt
 )
+from google_auth import (
+    get_credentials,
+    create_google_doc,
+    is_authenticated,
+    logout
+)
 
 # Page config
 st.set_page_config(
@@ -58,6 +64,37 @@ with st.sidebar:
         ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
         help="Select the OpenAI model to use"
     )
+    
+    st.divider()
+    
+    # Google Authentication
+    st.subheader("📤 Google Docs")
+    
+    if is_authenticated():
+        st.success("✓ Connected to Google")
+        if st.button("Disconnect", use_container_width=True):
+            logout()
+            st.rerun()
+    else:
+        st.info("Not connected")
+        if st.button("🔗 Connect Google Account", use_container_width=True):
+            with st.spinner("Authenticating..."):
+                creds = get_credentials()
+                if creds:
+                    st.success("✓ Successfully authenticated!")
+                    st.rerun()
+                else:
+                    st.error("⚠️ Authentication failed. Make sure credentials.json exists in the project folder.")
+                    with st.expander("How to setup Google OAuth"):
+                        st.markdown("""
+                        1. Go to [Google Cloud Console](https://console.cloud.google.com)
+                        2. Create a new project
+                        3. Enable Google Docs API and Google Drive API
+                        4. Create OAuth 2.0 credentials (Desktop app)
+                        5. Download as `credentials.json`
+                        6. Place it in the app folder
+                        7. Click 'Connect Google Account' again
+                        """)
 
 # Main content area
 col1, col2 = st.columns([2, 1])
@@ -283,15 +320,46 @@ if st.session_state.article:
         )
     
     with col3:
+        # Google Docs Export
+        if is_authenticated():
+            if st.button("📤 Export to Google Docs", use_container_width=True):
+                with st.spinner("Creating Google Doc..."):
+                    creds = get_credentials()
+                    if creds:
+                        doc_id, doc_url = create_google_doc(
+                            topic,
+                            st.session_state.article,
+                            creds
+                        )
+                        if doc_url:
+                            st.success("✓ Document created!")
+                            st.markdown(f"**[Open in Google Docs]({doc_url})**")
+                            # Store in session state to show link persistently
+                            st.session_state.google_doc_url = doc_url
+                        else:
+                            st.error("Failed to create document")
+                    else:
+                        st.error("Not authenticated. Please connect your Google account.")
+        else:
+            st.button("📤 Export to Google Docs", use_container_width=True, disabled=True, 
+                     help="Connect your Google account in the sidebar first")
+    
+    with col4:
         # Word count
         word_count = len(st.session_state.article.split())
         st.metric("Word Count", f"{word_count:,}")
     
-    with col4:
-        if st.button("🔄 Clear All", use_container_width=True):
-            st.session_state.article = None
-            st.session_state.outline = None
-            st.rerun()
+    # Show persistent Google Doc link if exists
+    if 'google_doc_url' in st.session_state and st.session_state.google_doc_url:
+        st.info(f"📄 Google Doc: [{topic}]({st.session_state.google_doc_url})")
+    
+    # Clear button
+    if st.button("🔄 Clear All", use_container_width=False):
+        st.session_state.article = None
+        st.session_state.outline = None
+        if 'google_doc_url' in st.session_state:
+            del st.session_state.google_doc_url
+        st.rerun()
     
     # Display the article
     st.markdown("---")
