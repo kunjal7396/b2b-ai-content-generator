@@ -1,0 +1,15 @@
+streamlit
+openai
+google-search-results
+beautifulsoup4
+lxml
+textstat
+pandas
+requests
+tqdm
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+textrazor
+sentence-transformers
+scikit-learn
